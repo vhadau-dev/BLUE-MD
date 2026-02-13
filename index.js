@@ -31,8 +31,19 @@ const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 // Logger
 const logger = pino({ level: 'silent' });
 
-// Store
-const store = makeInMemoryStore({ logger });
+// Store - Robust initialization
+let store;
+try {
+  if (typeof makeInMemoryStore === 'function') {
+    store = makeInMemoryStore({ logger });
+  } else if (pkg.makeInMemoryStore && typeof pkg.makeInMemoryStore === 'function') {
+    store = pkg.makeInMemoryStore({ logger });
+  } else {
+    console.log(chalk.yellow('⚠️  makeInMemoryStore not found as a function. Store features will be limited.'));
+  }
+} catch (e) {
+  console.log(chalk.red('❌ Error initializing store:'), e.message);
+}
 
 // Banner
 function showBanner() {
