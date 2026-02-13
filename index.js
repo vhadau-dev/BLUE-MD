@@ -12,18 +12,29 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// --- UNIVERSAL BAILEYS COMPATIBILITY LAYER ---
-const Baileys = pkg.default || pkg;
-const makeWASocket = Baileys.default || Baileys.makeWASocket || pkg.makeWASocket;
-const DisconnectReason = Baileys.DisconnectReason || pkg.DisconnectReason;
-const useMultiFileAuthState = Baileys.useMultiFileAuthState || pkg.useMultiFileAuthState;
-const fetchLatestBaileysVersion = Baileys.fetchLatestBaileysVersion || pkg.fetchLatestBaileysVersion;
-const makeCacheableSignalKeyStore = Baileys.makeCacheableSignalKeyStore || pkg.makeCacheableSignalKeyStore;
-const makeInMemoryStore = Baileys.makeInMemoryStore || pkg.makeInMemoryStore;
+// --- ULTIMATE BAILEYS COMPATIBILITY LAYER ---
+// This layer tries every possible way to find the required functions
+const getBaileysFunc = (name) => {
+  if (pkg[name]) return pkg[name];
+  if (pkg.default && pkg.default[name]) return pkg.default[name];
+  // Some versions export everything under 'default'
+  if (pkg.default && pkg.default.default && pkg.default.default[name]) return pkg.default.default[name];
+  return null;
+};
+
+const makeWASocket = getBaileysFunc('makeWASocket') || getBaileysFunc('default');
+const DisconnectReason = getBaileysFunc('DisconnectReason');
+const useMultiFileAuthState = getBaileysFunc('useMultiFileAuthState');
+const fetchLatestBaileysVersion = getBaileysFunc('fetchLatestBaileysVersion');
+const makeCacheableSignalKeyStore = getBaileysFunc('makeCacheableSignalKeyStore');
+const makeInMemoryStore = getBaileysFunc('makeInMemoryStore');
+
+// Final check and fallback for makeWASocket which is often the default export
+const finalMakeWASocket = (typeof makeWASocket === 'function') ? makeWASocket : (pkg.default && typeof pkg.default === 'function' ? pkg.default : makeWASocket);
 
 // Validate critical functions
-if (typeof makeWASocket !== 'function') console.error(chalk.red('❌ makeWASocket is not a function!'));
-if (typeof useMultiFileAuthState !== 'function') console.error(chalk.red('❌ useMultiFileAuthState is not a function!'));
+if (typeof finalMakeWASocket !== 'function') console.error(chalk.red('❌ makeWASocket is still not a function!'));
+if (typeof useMultiFileAuthState !== 'function') console.error(chalk.red('❌ useMultiFileAuthState is still not a function!'));
 // ---------------------------------------------
 
 // Create readline interface for pairing
@@ -74,20 +85,34 @@ async function startBot() {
   await loadCommands();
 
   // Auth state
+  if (typeof useMultiFileAuthState !== 'function') {
+    throw new Error('useMultiFileAuthState is not a function. Please check your Baileys installation.');
+  }
+  
   const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_FOLDER);
 
   // Get latest Baileys version
-  const { version } = await fetchLatestBaileysVersion();
+  let version = [4, 0, 0]; // Default fallback
+  if (typeof fetchLatestBaileysVersion === 'function') {
+    try {
+      const latest = await fetchLatestBaileysVersion();
+      version = latest.version;
+    } catch (e) {}
+  }
   console.log(chalk.green(`✓ Using Baileys version: ${version.join('.')}\n`));
 
   // Create socket
-  const sock = makeWASocket({
+  if (typeof finalMakeWASocket !== 'function') {
+    throw new Error('makeWASocket is not a function. Please check your Baileys installation.');
+  }
+
+  const sock = finalMakeWASocket({
     version,
     logger,
     printQRInTerminal: false,
     auth: {
       creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, logger)
+      keys: makeCacheableSignalKeyStore ? makeCacheableSignalKeyStore(state.keys, logger) : state.keys
     },
     browser: ['BLUE-MD', 'Chrome', '1.0.0'],
     markOnlineOnConnect: true,
@@ -120,7 +145,7 @@ async function startBot() {
     const { connection, lastDisconnect } = update;
 
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== (DisconnectReason ? DisconnectReason.loggedOut : 401);
       
       console.log(chalk.red('Connection closed. Reconnecting...'), shouldReconnect);
       
