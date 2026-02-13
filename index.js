@@ -1,10 +1,12 @@
-import makeWASocket, { 
+import pkg from '@whiskeysockets/baileys';
+const { 
+  default: makeWASocket,
   DisconnectReason, 
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   makeInMemoryStore
-} from '@whiskeysockets/baileys';
+} = pkg;
 import pino from 'pino';
 import chalk from 'chalk';
 import readline from 'readline';
