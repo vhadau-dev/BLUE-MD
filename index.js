@@ -113,7 +113,8 @@ async function startBot() {
     } else if (connection === 'open') {
       console.log(chalk.green('\n✓ BLUE-MD is now online!\n'));
       console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-      console.log(chalk.green(`Bot Name: ${config.BOT_NAME}`));\n      console.log(chalk.green(`Owner: ${config.OWNER_NAME}`));
+      console.log(chalk.green(`Bot Name: ${config.BOT_NAME}`));
+      console.log(chalk.green(`Owner: ${config.OWNER_NAME}`));
       console.log(chalk.green(`Prefix: ${config.PREFIX}`));
       console.log(chalk.green(`Commands: ${blue.getAllCommands().length}`));
       console.log(chalk.green(`AI Chatbot: ${config.CHATBOT_ENABLED ? 'Enabled' : 'Disabled'}`));
