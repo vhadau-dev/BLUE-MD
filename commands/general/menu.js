@@ -8,6 +8,23 @@ blue.bot({
   type: "general",
   handler: async (sock, msg) => {
     try {
+      const userId = msg.key.participant || msg.key.remoteJid;
+      const isGroup = msg.key.remoteJid.endsWith('@g.us');
+      
+      // Get group admins if it's a group
+      let groupAdmins = [];
+      if (isGroup) {
+        try {
+          const metadata = await sock.groupMetadata(msg.key.remoteJid);
+          groupAdmins = metadata.participants
+            .filter(p => p.admin !== null)
+            .map(p => p.id);
+        } catch (e) {
+          groupAdmins = [];
+        }
+      }
+
+      const role = blue.getUserRole(userId, groupAdmins);
       const categories = {
         owner: '👑 Owner Commands',
         admin: '⚙️ Admin Commands',
@@ -26,6 +43,7 @@ blue.bot({
 📋 *Bot Information*
 • Prefix: ${config.PREFIX}
 • Owner: ${config.OWNER_NAME}
+• Role: ${role}
 • Version: 1.0.0
 
 `;

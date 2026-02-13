@@ -22,9 +22,9 @@ export default {
   // 5. OWNER_NUMBER - Bot owner phone number(s) in international format
   OWNER_NUMBER: ["2347012345678"], // Replace with actual owner number(s)
   
-  // 6. ADMIN_NUMBERS - Admin users with 70% owner privileges
+  // 6. ADMIN_NUMBERS - Global admin users (Group admins are recognized automatically)
   ADMIN_NUMBERS: [
-    // Add admin numbers here
+    // Add global admin numbers here (optional)
   ],
   
   // 7. MOD_NUMBERS - Moderators with limited moderation access

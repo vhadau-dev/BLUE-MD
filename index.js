@@ -144,6 +144,19 @@ async function startBot() {
 
     const userId = msg.key.participant || msg.key.remoteJid;
     const isGroup = msg.key.remoteJid.endsWith('@g.us');
+    
+    // Get group admins if it's a group
+    let groupAdmins = [];
+    if (isGroup) {
+      try {
+        const metadata = await sock.groupMetadata(msg.key.remoteJid);
+        groupAdmins = metadata.participants
+          .filter(p => p.admin !== null)
+          .map(p => p.id);
+      } catch (e) {
+        groupAdmins = [];
+      }
+    }
 
     // Update user stats
     await db.incrementUserStats(userId, 'messageCount');
@@ -171,7 +184,7 @@ async function startBot() {
       }
 
       // Check permission
-      if (!blue.hasPermission(userId, command.permission)) {
+      if (!blue.hasPermission(userId, command.permission, groupAdmins)) {
         return await sock.sendMessage(msg.key.remoteJid, {
           text: `❌ You don't have permission to use this command!\n\nRequired role: ${command.permission}`
         });
