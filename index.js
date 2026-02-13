@@ -1,12 +1,4 @@
 import pkg from '@whiskeysockets/baileys';
-const { 
-  default: makeWASocket,
-  DisconnectReason, 
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore,
-  makeInMemoryStore
-} = pkg;
 import pino from 'pino';
 import chalk from 'chalk';
 import readline from 'readline';
@@ -20,6 +12,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// --- UNIVERSAL BAILEYS COMPATIBILITY LAYER ---
+const Baileys = pkg.default || pkg;
+const makeWASocket = Baileys.default || Baileys.makeWASocket || pkg.makeWASocket;
+const DisconnectReason = Baileys.DisconnectReason || pkg.DisconnectReason;
+const useMultiFileAuthState = Baileys.useMultiFileAuthState || pkg.useMultiFileAuthState;
+const fetchLatestBaileysVersion = Baileys.fetchLatestBaileysVersion || pkg.fetchLatestBaileysVersion;
+const makeCacheableSignalKeyStore = Baileys.makeCacheableSignalKeyStore || pkg.makeCacheableSignalKeyStore;
+const makeInMemoryStore = Baileys.makeInMemoryStore || pkg.makeInMemoryStore;
+
+// Validate critical functions
+if (typeof makeWASocket !== 'function') console.error(chalk.red('❌ makeWASocket is not a function!'));
+if (typeof useMultiFileAuthState !== 'function') console.error(chalk.red('❌ useMultiFileAuthState is not a function!'));
+// ---------------------------------------------
+
 // Create readline interface for pairing
 const rl = readline.createInterface({
   input: process.stdin,
@@ -31,18 +37,16 @@ const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 // Logger
 const logger = pino({ level: 'silent' });
 
-// Store - Robust initialization
+// Store initialization
 let store;
 try {
   if (typeof makeInMemoryStore === 'function') {
     store = makeInMemoryStore({ logger });
-  } else if (pkg.makeInMemoryStore && typeof pkg.makeInMemoryStore === 'function') {
-    store = pkg.makeInMemoryStore({ logger });
   } else {
-    console.log(chalk.yellow('⚠️  makeInMemoryStore not found as a function. Store features will be limited.'));
+    console.log(chalk.yellow('⚠️  makeInMemoryStore not found. Store features disabled.'));
   }
 } catch (e) {
-  console.log(chalk.red('❌ Error initializing store:'), e.message);
+  console.log(chalk.red('❌ Store error:'), e.message);
 }
 
 // Banner
