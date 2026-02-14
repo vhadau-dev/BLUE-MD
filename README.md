@@ -85,22 +85,25 @@ Owned by **vhadau_t** (vhadau-dev)
 
 ### 1. Clone Repository
 
-\`\`\`bash
+```
+bash
 git clone https://github.com/vhadau-dev/BLUE-MD.git
 cd BLUE-MD
-\`\`\`
+```
 
 ### 2. Install Dependencies
 
-\`\`\`bash
+```
+bash
 npm install
-\`\`\`
+```
 
 ### 3. Configure Bot
 
-Edit \`config.js\` and set your configuration:
+Edit **config.js** and set your configuration:
 
-\`\`\`javascript
+```
+javascript
 export default {
   BOT_NAME: "BLUE",
   OWNER_NAME: "vhadau_t",
@@ -108,21 +111,23 @@ export default {
   OWNER_NUMBER: ["2347012345678"], // Your number
   // ... more configs
 };
-\`\`\`
+```
 
 ### 4. Set Environment Variables (Optional)
 
-Create \`.env\` file:
+Create **.env** file:
 
-\`\`\`env
+```
+env
 OPENAI_API_KEY=your_openai_api_key_here
-\`\`\`
+```
 
 ### 5. Start Bot
 
-\`\`\`bash
+```
+bash
 npm start
-\`\`\`
+```
 
 ### 6. Pair with WhatsApp
 
@@ -163,22 +168,22 @@ npm start
 
 ### Basic Commands
 
-\`\`\`
+```
 .menu          - Display command menu
 .help <cmd>    - Get help for a command
 .ping          - Check bot response time
 .info          - Get bot information
 .stats         - Get bot statistics
-\`\`\`
+```
 
 ### AI Chatbot
 
-\`\`\`
+```
 .chatbot on    - Enable AI chatbot (Owner/Mod)
 .chatbot off   - Disable AI chatbot (Owner/Mod)
 .ai <message>  - Chat with AI
 .clearchat     - Clear your chat history
-\`\`\`
+```
 
 When chatbot is enabled, bot will respond to all non-command messages!
 
@@ -309,25 +314,26 @@ When chatbot is enabled, bot will respond to all non-command messages!
 ### Usage
 
 1. **Enable Chatbot** (Owner/Mod only):
-   \`\`\`
+   ```
    .chatbot on
-   \`\`\`
+   ```
 
 2. **Chat with Bot**:
    - In DM: Just send any message (no prefix needed)
    - In Groups: Mention the bot or use \`.ai <message>\`
 
 3. **Disable Chatbot**:
-   \`\`\`
+   ```
    .chatbot off
-   \`\`\`
+   ```
 
 ### Configuration
 
 Set your OpenAI API key in \`.env\`:
-\`\`\`env
+
+```env
 OPENAI_API_KEY=your_key_here
-\`\`\`
+```
 
 Or in \`config.js\`:
 \`\`\`javascript
@@ -376,9 +382,9 @@ CHATBOT_MODEL: "gpt-4.1-mini", // or "gpt-4.1-nano", "gemini-2.5-flash"
 
 Owner and Admins can update the bot directly from GitHub:
 
-\`\`\`
+```
 .update
-\`\`\`
+```
 
 This will:
 1. Fetch latest changes from repository
@@ -388,17 +394,18 @@ This will:
 
 ### Manual Update
 
-\`\`\`bash
+```
+bash
 git pull origin main
 npm install
 npm start
-\`\`\`
+```
 
 ---
 
 ## 📁 Project Structure
 
-\`\`\`
+```
 BLUE-MD/
 ├── commands/          # Command files
 │   ├── owner/        # Owner commands
@@ -419,7 +426,7 @@ BLUE-MD/
 ├── index.js          # Main bot file
 ├── package.json      # Dependencies
 └── README.md         # Documentation
-\`\`\`
+```
 
 ---
 
@@ -428,7 +435,8 @@ BLUE-MD/
 ### Adding New Commands
 
 1. Create a new file in appropriate category folder:
-   \`\`\`javascript
+```
+   javascript
    // commands/general/mycommand.js
    import blue from '../../lib/blue.js';
 
@@ -443,9 +451,9 @@ BLUE-MD/
        });
      }
    });
-   \`\`\`
+   ```
 
-2. Restart bot - command will be loaded automatically!
+3. Restart bot - command will be loaded automatically!
 
 ### Permission Levels
 - \`owner\` - Owner only
