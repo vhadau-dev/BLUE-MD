@@ -1,29 +1,30 @@
 {
   "name": "blue-md",
   "version": "1.0.0",
-  "description": "WhatsApp Multi-Device Bot with AI Chatbot Integration",
+  "description": "A powerful WhatsApp bot that can do almost anything",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "node --watch index.js"
   },
-  "keywords": ["whatsapp", "bot", "md", "baileys", "ai", "chatbot"],
-  "author": "vhadau_t",
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "blue-md"
+  ],
+  "author": "vhadau_t (vhadau-dev)",
   "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.9",
-    "pino": "^8.19.0",
+    "mongoose": "^8.0.0",
+    "dotenv": "^16.3.1",
+    "pino": "^8.16.2",
     "qrcode-terminal": "^0.12.0",
+    "axios": "^1.6.0",
     "chalk": "^5.3.0",
-    "axios": "^1.6.7",
-    "openai": "^4.28.0",
-    "moment-timezone": "^0.5.45",
-    "node-fetch": "^3.3.2",
-    "fs-extra": "^11.2.0",
-    "dotenv": "^16.4.5"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "moment-timezone": "^0.5.43",
+    "node-cache": "^5.1.2"
   }
 }

@@ -3,31 +3,34 @@ import util from 'util';
 
 blue.bot({
   cmd: "eval",
-  desc: "Execute JavaScript code (Owner only)",
-  fromMe: "owner",
+  desc: "Execute JavaScript code (Owner only - DANGEROUS)",
+  fromMe: true,
   type: "owner",
+  react: "⚠️",
+  filename: import.meta.url,
   handler: async (sock, msg, args) => {
+    const code = args.join(' ');
+    
+    if (!code) {
+      return await sock.sendMessage(msg.key.remoteJid, {
+        text: '❌ Please provide code to execute\nUsage: .eval <code>\n\n⚠️ Warning: This command is dangerous!'
+      }, { quoted: msg });
+    }
+    
     try {
-      if (!args[0]) {
-        return await sock.sendMessage(msg.key.remoteJid, { 
-          text: '❌ Please provide code to evaluate' 
-        });
-      }
-
-      const code = args.join(' ');
       let result = eval(code);
       
       if (typeof result !== 'string') {
         result = util.inspect(result, { depth: 0 });
       }
-
-      await sock.sendMessage(msg.key.remoteJid, { 
-        text: `✅ *Eval Result:*\n\n\`\`\`${result}\`\`\`` 
-      });
+      
+      const text = `⚠️ *Eval Result*\n\n\`\`\`${result}\`\`\``;
+      
+      await sock.sendMessage(msg.key.remoteJid, { text }, { quoted: msg });
     } catch (error) {
-      await sock.sendMessage(msg.key.remoteJid, { 
-        text: `❌ *Error:*\n\n\`\`\`${error.message}\`\`\`` 
-      });
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: `❌ *Eval Error*\n\n\`\`\`${error.message}\`\`\``
+      }, { quoted: msg });
     }
   }
 });

@@ -2,47 +2,47 @@ import blue from '../../lib/blue.js';
 
 blue.bot({
   cmd: "broadcast",
-  desc: "Broadcast message to all groups",
-  fromMe: "owner",
+  desc: "Broadcast message to all groups (Owner only)",
+  fromMe: true,
   type: "owner",
+  react: "📢",
+  filename: import.meta.url,
   handler: async (sock, msg, args) => {
+    const message = args.join(' ');
+    
+    if (!message) {
+      return await sock.sendMessage(msg.key.remoteJid, {
+        text: '❌ Please provide a message to broadcast\nUsage: .broadcast <message>'
+      }, { quoted: msg });
+    }
+    
     try {
-      if (!args[0]) {
-        return await sock.sendMessage(msg.key.remoteJid, { 
-          text: '❌ Please provide a message to broadcast' 
-        });
-      }
-
-      const message = args.join(' ');
       const groups = await sock.groupFetchAllParticipating();
       const groupIds = Object.keys(groups);
-
-      await sock.sendMessage(msg.key.remoteJid, { 
-        text: `📢 Broadcasting to ${groupIds.length} groups...` 
-      });
-
-      let success = 0;
-      let failed = 0;
-
+      
+      let successCount = 0;
+      let failCount = 0;
+      
       for (const groupId of groupIds) {
         try {
-          await sock.sendMessage(groupId, { 
-            text: `📢 *BROADCAST MESSAGE*\n\n${message}\n\n_Sent by ${config.BOT_NAME}_` 
+          await sock.sendMessage(groupId, {
+            text: `📢 *Broadcast Message*\n\n${message}`
           });
-          success++;
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Delay to avoid spam
-        } catch (err) {
-          failed++;
+          successCount++;
+        } catch (error) {
+          failCount++;
         }
       }
-
-      await sock.sendMessage(msg.key.remoteJid, { 
-        text: `✅ Broadcast complete!\n\n✓ Success: ${success}\n✗ Failed: ${failed}` 
-      });
+      
+      const text = `📢 *Broadcast Complete*\n\n` +
+        `✅ Success: ${successCount} groups\n` +
+        `❌ Failed: ${failCount} groups`;
+      
+      await sock.sendMessage(msg.key.remoteJid, { text }, { quoted: msg });
     } catch (error) {
-      await sock.sendMessage(msg.key.remoteJid, { 
-        text: `❌ Broadcast failed: ${error.message}` 
-      });
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: `❌ Broadcast failed: ${error.message}`
+      }, { quoted: msg });
     }
   }
 });

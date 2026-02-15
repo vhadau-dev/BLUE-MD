@@ -1,379 +1,181 @@
-import pkg from '@whiskeysockets/baileys';
+import makeWASocket, { 
+  DisconnectReason, 
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore
+} from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import chalk from 'chalk';
-import readline from 'readline';
-import fs from 'fs-extra';
 import config from './config.js';
-import blue from './lib/blue.js';
-import { loadCommands } from './lib/loader.js';
 import db from './lib/database.js';
-import chatbot from './lib/chatbot.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-// --- ULTIMATE BAILEYS COMPATIBILITY LAYER ---
-// This layer tries every possible way to find the required functions
-const getBaileysFunc = (name) => {
-  if (pkg[name]) return pkg[name];
-  if (pkg.default && pkg.default[name]) return pkg.default[name];
-  // Some versions export everything under 'default'
-  if (pkg.default && pkg.default.default && pkg.default.default[name]) return pkg.default.default[name];
-  return null;
-};
-
-const makeWASocket = getBaileysFunc('makeWASocket') || getBaileysFunc('default');
-const DisconnectReason = getBaileysFunc('DisconnectReason');
-const useMultiFileAuthState = getBaileysFunc('useMultiFileAuthState');
-const fetchLatestBaileysVersion = getBaileysFunc('fetchLatestBaileysVersion');
-const makeCacheableSignalKeyStore = getBaileysFunc('makeCacheableSignalKeyStore');
-const makeInMemoryStore = getBaileysFunc('makeInMemoryStore');
-
-// Final check and fallback for makeWASocket which is often the default export
-const finalMakeWASocket = (typeof makeWASocket === 'function') ? makeWASocket : (pkg.default && typeof pkg.default === 'function' ? pkg.default : makeWASocket);
-
-// Validate critical functions
-if (typeof finalMakeWASocket !== 'function') console.error(chalk.red('❌ makeWASocket is still not a function!'));
-if (typeof useMultiFileAuthState !== 'function') console.error(chalk.red('❌ useMultiFileAuthState is still not a function!'));
-// ---------------------------------------------
-
-// Create readline interface for pairing
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-
-// Logger
-const logger = pino({ level: 'silent' });
-
-// Store initialization
-let store;
-try {
-  if (typeof makeInMemoryStore === 'function') {
-    store = makeInMemoryStore({ logger });
-  } else {
-    console.log(chalk.yellow('⚠️  makeInMemoryStore not found. Store features disabled.'));
-  }
-} catch (e) {
-  console.log(chalk.red('❌ Store error:'), e.message);
-}
+import blue from './lib/blue.js';
+import loadCommands from './lib/loader.js';
 
 // Banner
-function showBanner() {
-  console.log(chalk.cyan(`
+console.log(chalk.cyan(`
 ╔══════════════════════════════════════╗
 ║                                      ║
-║         BLUE-MD WhatsApp Bot         ║
+║           BLUE-MD BOT v1.0           ║
 ║                                      ║
-║  Owner: ${config.OWNER_NAME.padEnd(28)}║
-║  Version: 1.0.0                      ║
+║      Created by: vhadau_t            ║
+║      GitHub: vhadau-dev              ║
 ║                                      ║
 ╚══════════════════════════════════════╝
-  `));
+`));
+
+// Session validation
+console.log(chalk.yellow('🔍 Checking SESSION_ID...'));
+
+if (!config.SESSION_ID) {
+  console.log(chalk.red('❌ SESSION_ID not found. Please pair your bot.'));
+  console.log(chalk.yellow('\nSteps to get SESSION_ID:'));
+  console.log(chalk.white('1. Set up your SESSION_ID in the .env file'));
+  console.log(chalk.white('2. Get a valid session from WhatsApp pairing'));
+  console.log(chalk.white('3. Restart the bot'));
+  process.exit(1);
 }
+
+console.log(chalk.green('✅ SESSION_ID found'));
+
+// Database connection
+console.log(chalk.yellow('\n🔍 Connecting to database...'));
+
+const dbConnected = await db.connectDB();
+if (!dbConnected) {
+  console.log(chalk.red('❌ Database connection failed. Bot cannot start.'));
+  console.log(chalk.yellow('\nPlease check your MONGO_URI in .env file'));
+  process.exit(1);
+}
+
+// Load commands
+await loadCommands();
 
 // Start bot
 async function startBot() {
-  showBanner();
+  const { state, saveCreds } = await useMultiFileAuthState('./session');
+  const { version } = await fetchLatestBaileysVersion();
 
-  // Ensure session folder exists
-  await fs.ensureDir(config.SESSION_FOLDER);
-
-  // Load commands
-  await loadCommands();
-
-  // Auth state
-  if (typeof useMultiFileAuthState !== 'function') {
-    throw new Error('useMultiFileAuthState is not a function. Please check your Baileys installation.');
-  }
-  
-  const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_FOLDER);
-
-  // Get latest Baileys version
-  let version = [4, 0, 0]; // Default fallback
-  if (typeof fetchLatestBaileysVersion === 'function') {
-    try {
-      const latest = await fetchLatestBaileysVersion();
-      version = latest.version;
-    } catch (e) {}
-  }
-  console.log(chalk.green(`✓ Using Baileys version: ${version.join('.')}\n`));
-
-  // Create socket
-  if (typeof finalMakeWASocket !== 'function') {
-    throw new Error('makeWASocket is not a function. Please check your Baileys installation.');
-  }
-
-  const sock = finalMakeWASocket({
+  const sock = makeWASocket({
     version,
-    logger,
+    logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     auth: {
       creds: state.creds,
-      keys: makeCacheableSignalKeyStore ? makeCacheableSignalKeyStore(state.keys, logger) : state.keys
+      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
     },
     browser: ['BLUE-MD', 'Chrome', '1.0.0'],
     markOnlineOnConnect: true,
     generateHighQualityLinkPreview: true,
     getMessage: async (key) => {
-      if (store) {
-        const msg = await store.loadMessage(key.remoteJid, key.id);
-        return msg?.message || undefined;
-      }
-      return { conversation: '' };
+      return { conversation: 'BLUE-MD' };
     }
   });
 
-  // Bind store
-  store?.bind(sock.ev);
+  // Set sock in blue handler
+  blue.setSock(sock);
 
-  // Handle pairing
-  if (!sock.authState.creds.registered) {
-    console.log(chalk.yellow('⚠️  No session found. Starting pairing process...\n'));
-    
-    const phoneNumber = await question(chalk.cyan('Enter your WhatsApp number (with country code): '));
-    const code = await sock.requestPairingCode(phoneNumber.trim());
-    
-    console.log(chalk.green(`\n✓ Your pairing code: ${chalk.bold(code)}`));
-    console.log(chalk.yellow('Enter this code in WhatsApp > Linked Devices > Link a Device\n'));
-  }
+  // Save credentials on update
+  sock.ev.on('creds.update', saveCreds);
 
-  // Connection update
+  // Connection update handler
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
 
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== (DisconnectReason ? DisconnectReason.loggedOut : 401);
-      
-      console.log(chalk.red('Connection closed. Reconnecting...'), shouldReconnect);
-      
+      const shouldReconnect = 
+        (lastDisconnect?.error instanceof Boom)
+          ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
+          : true;
+
+      console.log(chalk.red('❌ Connection closed'));
+
+      if (lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
+        console.log(chalk.red('⚠️ Session expired, please get a new one.'));
+        process.exit(1);
+      }
+
       if (shouldReconnect) {
-        startBot();
+        console.log(chalk.yellow('🔄 Reconnecting...'));
+        setTimeout(() => startBot(), 3000);
       }
     } else if (connection === 'open') {
-      console.log(chalk.green('\n✓ BLUE-MD is now online!\n'));
-      console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-      console.log(chalk.green(`Bot Name: ${config.BOT_NAME}`));
-      console.log(chalk.green(`Owner: ${config.OWNER_NAME}`));
-      console.log(chalk.green(`Prefix: ${config.PREFIX}`));
-      console.log(chalk.green(`Commands: ${blue.getAllCommands().length}`));
-      console.log(chalk.green(`AI Chatbot: ${config.CHATBOT_ENABLED ? 'Enabled' : 'Disabled'}`));
-      console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'));
+      console.log(chalk.green('\n✅ Bot connected successfully!'));
+      console.log(chalk.cyan(`📱 Bot Name: ${config.BOT_NAME}`));
+      console.log(chalk.cyan(`👤 Owner: ${config.OWNER_NAME}`));
+      console.log(chalk.cyan(`⚡ Prefix: ${config.PREFIX}`));
+      console.log(chalk.cyan(`📊 Commands: ${blue.getCommands().length}`));
+      console.log(chalk.green('\n🚀 Bot is ready to receive messages!\n'));
     }
   });
 
-  // Save credentials
-  sock.ev.on('creds.update', saveCreds);
-
-  // Handle messages
+  // Message handler
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
-
+    
     const msg = messages[0];
     if (!msg.message) return;
     if (msg.key.fromMe) return;
 
-    // Get message text
-    const messageText = 
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      msg.message.imageMessage?.caption ||
-      msg.message.videoMessage?.caption ||
-      '';
-
-    if (!messageText) return;
-
-    const userId = msg.key.participant || msg.key.remoteJid;
-    const isGroup = msg.key.remoteJid.endsWith('@g.us');
-    
-    // Get group admins if it's a group
-    let groupAdmins = [];
-    if (isGroup) {
-      try {
-        const metadata = await sock.groupMetadata(msg.key.remoteJid);
-        groupAdmins = metadata.participants
-          .filter(p => p.admin !== null)
-          .map(p => p.id);
-      } catch (e) {
-        groupAdmins = [];
-      }
-    }
-
-    // Update user stats
-    await db.incrementUserStats(userId, 'messageCount');
-
-    // Auto read
-    if (config.AUTO_READ) {
-      await sock.readMessages([msg.key]);
-    }
-
-    // Check if message is a command
-    if (messageText.startsWith(config.PREFIX)) {
-      const args = messageText.slice(config.PREFIX.length).trim().split(/ +/);
-      const commandName = args.shift().toLowerCase();
-      const command = blue.getCommand(commandName);
-
-      if (!command) {
-        // Command not found - check if chatbot should respond
-        if (config.CHATBOT_ENABLED && !isGroup) {
-          const response = await chatbot.chat(userId, messageText);
-          if (response) {
-            await sock.sendMessage(msg.key.remoteJid, { text: response });
-          }
-        }
-        return;
-      }
-
-      // Check permission
-      if (!blue.hasPermission(userId, command.permission, groupAdmins)) {
-        return await sock.sendMessage(msg.key.remoteJid, {
-          text: `❌ You don't have permission to use this command!\n\nRequired role: ${command.permission}`
-        });
-      }
-
-      // Check cooldown
-      const cooldown = blue.checkCooldown(userId, commandName);
-      if (cooldown.onCooldown) {
-        return await sock.sendMessage(msg.key.remoteJid, {
-          text: `⏳ Please wait ${cooldown.timeLeft}s before using this command again`
-        });
-      }
-
-      // Auto react
-      if (config.AUTO_REACT) {
-        await sock.sendMessage(msg.key.remoteJid, {
-          react: { text: '⚡', key: msg.key }
-        });
-      }
-
-      // Update command stats
-      await db.incrementUserStats(userId, 'commandCount');
-
-      // Execute command
-      try {
-        console.log(chalk.blue(`[CMD] ${commandName} by ${userId.split('@')[0]}`));
-        await command.handler(sock, msg, args);
-      } catch (error) {
-        console.error(chalk.red(`[ERROR] ${commandName}:`), error);
-        await sock.sendMessage(msg.key.remoteJid, {
-          text: `❌ Command execution failed: ${error.message}`
-        });
-      }
-    } else {
-      // Not a command - check if chatbot should respond
-      if (config.CHATBOT_ENABLED) {
-        // In groups, only respond when bot is mentioned or in DM
-        const shouldRespond = !isGroup || messageText.includes(`@${sock.user.id.split(':')[0]}`);
-        
-        if (shouldRespond) {
-          // Auto typing
-          if (config.AUTO_TYPING) {
-            await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
-          }
-
-          const response = await chatbot.chat(userId, messageText);
-          
-          if (response) {
-            await sock.sendMessage(msg.key.remoteJid, { 
-              text: response 
-            });
-          }
-
-          // Stop typing
-          if (config.AUTO_TYPING) {
-            await sock.sendPresenceUpdate('paused', msg.key.remoteJid);
-          }
-        }
-      }
-    }
+    await blue.handleMessage(sock, msg);
   });
 
-  // Handle group updates
-  sock.ev.on('group-participants.update', async ({ id, participants, action }) => {
-    const settings = await db.getGroupSettings(id);
-
-    if (action === 'add' && settings.welcome) {
-      for (const participant of participants) {
-        await sock.sendMessage(id, {
-          text: config.WELCOME_MESSAGE.replace('@user', `@${participant.split('@')[0]}`),
-          mentions: [participant]
-        });
-      }
-    }
-
-    if (action === 'remove' && settings.goodbye) {
-      for (const participant of participants) {
-        await sock.sendMessage(id, {
-          text: config.GOODBYE_MESSAGE.replace('@user', `@${participant.split('@')[0]}`),
-          mentions: [participant]
-        });
-      }
-    }
-  });
-
-  // Anti-link handler
-  sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
-
-    const groupId = msg.key.remoteJid;
-    if (!groupId.endsWith('@g.us')) return;
-
-    const settings = await db.getGroupSettings(groupId);
-    if (!settings.antilink) return;
-
-    const userId = msg.key.participant;
+  // Group participant update handler
+  sock.ev.on('group-participants.update', async (update) => {
+    const { id, participants, action } = update;
     
-    // Don't check owner/admin/mod
-    if (blue.isOwner(userId) || blue.isAdmin(userId) || blue.isMod(userId)) return;
-
-    const messageText = 
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      '';
-
-    // Check for links
-    const linkRegex = /(https?:\/\/|www\.)[^\s]+/gi;
-    const waGroupRegex = /chat\.whatsapp\.com\/[^\s]+/gi;
-
-    if (linkRegex.test(messageText) || waGroupRegex.test(messageText)) {
-      // Delete message
-      await sock.sendMessage(groupId, { delete: msg.key });
-
-      // Warn user
-      const warnings = await db.addWarning(userId, groupId);
+    try {
+      const groupSettings = await db.getGroup(id);
       
-      let warningText = `⚠️ @${userId.split('@')[0]} Link detected!\n\nWarnings: ${warnings}/${config.MAX_WARNINGS}`;
-
-      if (warnings >= config.MAX_WARNINGS) {
-        await sock.groupParticipantsUpdate(groupId, [userId], 'remove');
-        warningText += '\n\n❌ Maximum warnings reached! User kicked.';
-        await db.resetWarnings(userId, groupId);
+      if (action === 'add' && groupSettings.welcome) {
+        const groupMetadata = await sock.groupMetadata(id);
+        
+        for (const participant of participants) {
+          const welcomeText = groupSettings.welcomeMessage
+            .replace('@user', `@${participant.split('@')[0]}`)
+            .replace('@group', groupMetadata.subject);
+          
+          await sock.sendMessage(id, {
+            text: welcomeText,
+            mentions: [participant]
+          });
+        }
       }
-
-      await sock.sendMessage(groupId, {
-        text: warningText,
-        mentions: [userId]
-      });
+      
+      if (action === 'remove' && groupSettings.goodbye) {
+        const groupMetadata = await sock.groupMetadata(id);
+        
+        for (const participant of participants) {
+          const goodbyeText = groupSettings.goodbyeMessage
+            .replace('@user', `@${participant.split('@')[0]}`)
+            .replace('@group', groupMetadata.subject);
+          
+          await sock.sendMessage(id, {
+            text: goodbyeText,
+            mentions: [participant]
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error handling group participant update:', error);
     }
   });
 
   return sock;
 }
 
-// Start
-startBot().catch((err) => {
-  console.error(chalk.red('Fatal error:'), err);
+// Start the bot
+startBot().catch(error => {
+  console.error(chalk.red('❌ Fatal error:'), error);
   process.exit(1);
 });
 
 // Handle process termination
-process.on('uncaughtException', (err) => {
-  console.error(chalk.red('Uncaught Exception:'), err);
+process.on('SIGINT', () => {
+  console.log(chalk.yellow('\n👋 Shutting down bot...'));
+  process.exit(0);
 });
 
-process.on('unhandledRejection', (err) => {
-  console.error(chalk.red('Unhandled Rejection:'), err);
+process.on('unhandledRejection', (error) => {
+  console.error(chalk.red('❌ Unhandled rejection:'), error);
 });

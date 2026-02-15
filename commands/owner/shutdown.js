@@ -3,15 +3,15 @@ import blue from '../../lib/blue.js';
 blue.bot({
   cmd: "shutdown",
   desc: "Shutdown the bot (Owner only)",
-  fromMe: "owner",
+  fromMe: true,
   type: "owner",
-  handler: async (sock, msg) => {
-    await sock.sendMessage(msg.key.remoteJid, { 
-      text: '⚠️ Bot shutting down...' 
-    });
+  react: "🛑",
+  filename: import.meta.url,
+  handler: async (sock, msg, args) => {
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: '🛑 Shutting down bot...'
+    }, { quoted: msg });
     
-    setTimeout(() => {
-      process.exit(1);
-    }, 1000);
+    process.exit(0);
   }
 });

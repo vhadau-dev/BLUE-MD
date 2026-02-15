@@ -1,18 +1,17 @@
 import blue from '../../lib/blue.js';
-import { exec } from 'child_process';
 
 blue.bot({
   cmd: "restart",
   desc: "Restart the bot (Owner only)",
-  fromMe: "owner",
+  fromMe: true,
   type: "owner",
-  handler: async (sock, msg) => {
-    await sock.sendMessage(msg.key.remoteJid, { 
-      text: '🔄 Restarting bot...' 
-    });
+  react: "🔄",
+  filename: import.meta.url,
+  handler: async (sock, msg, args) => {
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: '🔄 Restarting bot...'
+    }, { quoted: msg });
     
-    setTimeout(() => {
-      process.exit(0);
-    }, 1000);
+    process.exit(0);
   }
 });
