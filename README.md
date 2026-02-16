@@ -47,28 +47,83 @@ A powerful WhatsApp Multi-Device bot built with Baileys, featuring a comprehensi
 
     Create a `.env` file in the root directory and add the following:
 
-    ```env
-    # Get this from pairing your WhatsApp account
-    SESSION_ID=
+    ```# ========================================
+# BLUE-MD Bot Configuration
+# ========================================
 
-    # Your MongoDB connection string
-    MONGO_URI=mongodb://localhost:27017/bluemd
+# Session folder (REQUIRED)
+SESSION_ID=./session
 
-    # Optional: URL for images used in menu, mods list, etc.
-    BLUE_IMAGE=https://example.com/image.jpg
+# Bot Image
+BLUE_IMAGE=https://d.uguu.se/HpAPramA.jpg
+# Command prefix
+PREFIX=.
+
+# Owners
+OWNERS=27675859928 you nunmber
+
+# Mods / Guards
+MODS=you mods here
+
+# Bot behavior
+AUTO_READ=true
+AUTO_REACT=true
+AUTO_TYPING=false
+
+# Timezone & logging
+TIMEZONE=Africa/Lagos
+LOG_LEVEL=info
     ```
 
 4.  **Configure the Bot:**
 
     Edit `config.js` to set your owner number and other preferences:
 
-    ```javascript
-    // config.js
-    const config = {
-      // ...
-      OWNERS: ["2347012345678"], // Replace with your number
-      // ...
-    };
+    ```import 'dotenv/config';
+
+const config = {
+  // Bot Information
+  BOT_NAME: process.env.BOT_NAME || "Riculu",
+  OWNER_NAME: process.env.OWNER_NAME || "vhadau_t",
+  VERSION: "1.0.0",
+
+  // Command Configuration
+  PREFIX: process.env.PREFIX || ".",
+
+  // Owner Configuration
+  OWNERS: (process.env.OWNERS || "27675859928")
+    .split(',')
+    .map(n => n.trim()),
+
+  // Session Configuration
+  SESSION_ID: process.env.SESSION_ID || "./session",
+
+  // Image Configuration
+  BLUE_IMAGE: process.env.BLUE_IMAGE || "https://d.uguu.se/HpAPramA.jpg",
+  // Bot Behavior
+  AUTO_READ: process.env.AUTO_READ === "true",
+  AUTO_REACT: process.env.AUTO_REACT === "false",
+  AUTO_TYPING: process.env.AUTO_TYPING === "true",
+  MODS: (process.env.MODS || "27675859928"), 
+
+  // Group Settings Defaults (still fine)
+  DEFAULT_GROUP_SETTINGS: {
+    antilink: true,
+    welcome: false,
+    goodbye: false,
+    mute: false,
+    locked: false
+  },
+
+  // Timezone
+  TIMEZONE: process.env.TIMEZONE || "Africa/Lagos",
+
+  // Logging
+  LOG_LEVEL: process.env.LOG_LEVEL || "info"
+};
+
+export default config;
+
     ```
 
 5.  **Start the Bot:**
