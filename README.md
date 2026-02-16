@@ -47,39 +47,39 @@ A powerful WhatsApp Multi-Device bot built with Baileys, featuring a comprehensi
 
     Create a `.env` file in the root directory and add the following:
 
-    ```# ========================================
-# BLUE-MD Bot Configuration
-# ========================================
+    ```========================================
+ BLUE-MD Bot Configuration
+ ========================================
 
-# Session folder (REQUIRED)
+ Session folder (REQUIRED)
 SESSION_ID=./session
 
-# Bot Image
+ Bot Image
 BLUE_IMAGE=https://d.uguu.se/HpAPramA.jpg
-# Command prefix
+ Command prefix
 PREFIX=.
 
-# Owners
+ Owners
 OWNERS=27675859928 you nunmber
 
-# Mods / Guards
+ Mods / Guards
 MODS=you mods here
 
-# Bot behavior
+ Bot behavior
 AUTO_READ=true
 AUTO_REACT=true
 AUTO_TYPING=false
 
-# Timezone & logging
+ Timezone & logging
 TIMEZONE=Africa/Lagos
 LOG_LEVEL=info
-    ```
+```
 
 4.  **Configure the Bot:**
 
     Edit `config.js` to set your owner number and other preferences:
 
-    ```import 'dotenv/config';
+```import 'dotenv/config';
 
 const config = {
   // Bot Information
