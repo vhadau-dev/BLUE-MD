@@ -1,40 +1,119 @@
-import makeWASocket, { 
-  DisconnectReason, 
+import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore
+  makeCacheableSignalKeyStore,
+  DisconnectReason,
+  delay,
+  Browsers
 } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
+
 import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
 import chalk from 'chalk';
-import config from './config.js';
-import db from './lib/database.js';
+
 import blue from './lib/blue.js';
 import loadCommands from './lib/loader.js';
+import config from './config.js';
 
-// Banner
+const SESSION_PATH = path.resolve(config.SESSION_ID || './session');
+
+if (!fs.existsSync(SESSION_PATH)) {
+  fs.mkdirSync(SESSION_PATH, { recursive: true });
+}
+
 console.log(chalk.cyan(`
-╔══════════════════════════════════════╗
-║                                      ║
-║           BLUE-MD BOT v1.0           ║
-║                                      ║
-║      Created by: vhadau_t            ║
-║      GitHub: vhadau-dev              ║
-║                                      ║
-╚══════════════════════════════════════╝
+╔══════════════════════════════╗
+║        BLUE-MD BOT           ║
+║      Stable Core Build       ║
+╚══════════════════════════════╝
 `));
 
-// Session validation
-console.log(chalk.yellow('🔍 Checking SESSION_ID...'));
-
-if (!config.SESSION_ID) {
-  console.log(chalk.red('❌ SESSION_ID not found. Please pair your bot.'));
-  console.log(chalk.yellow('\nSteps to get SESSION_ID:'));
-  console.log(chalk.white('1. Set up your SESSION_ID in the .env file'));
-  console.log(chalk.white('2. Get a valid session from WhatsApp pairing'));
-  console.log(chalk.white('3. Restart the bot'));
-  process.exit(1);
+function askNumber() {
+  return new Promise(resolve => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    rl.question('📱 Enter WhatsApp number (no +): ', n => {
+      rl.close();
+      resolve(n.replace(/[^0-9]/g, ''));
+    });
+  });
 }
+
+async function startBot() {
+  await loadCommands();
+
+  const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    version,
+    logger: pino({ level: 'silent' }),
+    printQRInTerminal: false,
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' }))
+    },
+    browser: Browsers.ubuntu('Chrome'),
+    markOnlineOnConnect: true,
+    syncFullHistory: false
+  });
+
+  blue.setSock(sock);
+
+  if (!state.creds.registered) {
+    console.log('\n🔗 Pair your WhatsApp account');
+    const number = await askNumber();
+
+    console.log('⏳ Requesting pairing code...');
+    await delay(2000);
+
+    const code = await sock.requestPairingCode(number);
+    console.log(chalk.green(`\n✅ PAIRING CODE: ${code}\n`));
+    console.log('Open WhatsApp → Linked Devices → Link with phone number');
+  }
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', ({ connection, lastDisconnect }) => {
+    if (connection === 'open') {
+      console.log(chalk.green('\n✅ Bot connected & ready'));
+      console.log(`📦 Commands loaded: ${blue.getCommands().length}\n`);
+    }
+
+    if (connection === 'close') {
+      const reason = lastDisconnect?.error?.output?.statusCode;
+      if (reason === DisconnectReason.loggedOut) {
+        console.log('❌ Logged out. Delete session & restart.');
+        process.exit(0);
+      }
+      console.log('🔄 Reconnecting...');
+      startBot();
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify') return;
+
+    const msg = messages[0];
+    if (!msg.message || msg.key.fromMe) return;
+
+    await blue.handleMessage(sock, msg);
+  });
+}
+
+startBot().catch(err => {
+  console.error('❌ Fatal error:', err);
+  process.exit(1);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n👋 Shutting down...');
+  process.exit(0);
+});}
 
 console.log(chalk.green('✅ SESSION_ID found'));
 
